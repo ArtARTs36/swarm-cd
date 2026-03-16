@@ -22,6 +22,7 @@ type RepoConfig struct {
 	Password         string
 	PasswordFile     string `mapstructure:"password_file"`
 	DefaultReference string `mapstructure:"default_reference"`
+	CertificateFile  string `mapstructure:"certificate_file"`
 }
 
 type Config struct {

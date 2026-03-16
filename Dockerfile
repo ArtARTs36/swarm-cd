@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o /swarm-cd ./cmd/
 FROM alpine:3.22.1
 WORKDIR /app
 
-RUN apk add --no-cache ca-certificates gnupg openssh-client && update-ca-certificates
+RUN apk add --no-cache ca-certificates gnupg && update-ca-certificates
 
 # Copy the built backend binary from the backend build stage
 COPY --from=backend-build /swarm-cd /app/

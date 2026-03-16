@@ -1,6 +1,7 @@
 package swarmcd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -18,7 +19,7 @@ func createRepoAuth(repoName string) (transport.AuthMethod, error) {
 		return createSSHAuth(*repoConfig)
 	}
 
-	return createHTTPBasicAuth(repoName, *repoConfig)
+	return createHTTPBasicAuth(*repoConfig)
 }
 
 func createSSHAuth(repoConfig util.RepoConfig) (transport.AuthMethod, error) {
@@ -27,37 +28,53 @@ func createSSHAuth(repoConfig util.RepoConfig) (transport.AuthMethod, error) {
 		username = "git"
 	}
 
-	return ssh.NewPublicKeysFromFile(repoConfig.Username, repoConfig.PasswordFile, "")
+	password, err := getPassword(repoConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get password: %w", err)
+	}
+
+	return ssh.NewPublicKeysFromFile(repoConfig.Username, repoConfig.CertificateFile, password)
 }
 
-func createHTTPBasicAuth(repoName string, repoConfig util.RepoConfig) (*http.BasicAuth, error) {
+func createHTTPBasicAuth(repoConfig util.RepoConfig) (*http.BasicAuth, error) {
 	// assume repo is public and no auth is required
 	if repoConfig.Username == "" && repoConfig.Password == "" && repoConfig.PasswordFile == "" {
 		return nil, nil
 	}
 
 	if repoConfig.Username == "" {
-		return nil, fmt.Errorf("you must set username for the repo %s", repoName)
+		return nil, errors.New("you must set username for the repo")
 	}
 
 	if repoConfig.Password == "" && repoConfig.PasswordFile == "" {
-		return nil, fmt.Errorf("you must set one of password or password_file properties for the repo %s", repoName)
+		return nil, errors.New("you must set one of password or password_file properties for the repo")
 	}
 
-	var password string
-	if repoConfig.Password != "" {
-		password = repoConfig.Password
-	} else {
-		passwordBytes, err := os.ReadFile(repoConfig.PasswordFile)
-		if err != nil {
-			return nil, fmt.Errorf("could not read password file %s for repo %s", repoConfig.PasswordFile, repoName)
-		}
-		// trim newline and whitespaces
-		password = strings.TrimSpace(string(passwordBytes))
+	password, err := getPassword(repoConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get password: %w", err)
 	}
 
 	return &http.BasicAuth{
 		Username: repoConfig.Username,
 		Password: password,
 	}, nil
+}
+
+func getPassword(repoConfig util.RepoConfig) (string, error) {
+	if repoConfig.Password == "" && repoConfig.PasswordFile == "" {
+		return "", nil
+	}
+
+	if repoConfig.Password != "" {
+		return repoConfig.Password, nil
+	}
+
+	passwordBytes, err := os.ReadFile(repoConfig.PasswordFile)
+	if err != nil {
+		return "", fmt.Errorf("could not read password file %q: %w", repoConfig.PasswordFile, err)
+	}
+
+	// trim newline and whitespaces
+	return strings.TrimSpace(string(passwordBytes)), nil
 }

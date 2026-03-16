@@ -46,11 +46,11 @@ func initRepos() error {
 		repoPath := path.Join(config.ReposPath, repoName)
 		auth, err := createRepoAuth(repoName)
 		if err != nil {
-			return err
+			return fmt.Errorf("create auth for repo %q: %w", repoName, err)
 		}
 		repos[repoName], err = newStackRepo(repoName, repoPath, repoConfig.Url, repoConfig.DefaultReference, auth)
 		if err != nil {
-			return err
+			return fmt.Errorf("create stack repo %q: %w", repoName, err)
 		}
 	}
 	return nil
